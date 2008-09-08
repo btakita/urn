@@ -1,6 +1,6 @@
-WatchWindow = {}
+Urn.WatchWindow = {}
 
-WatchWindow.New = function()
+Urn.WatchWindow.New = function()
   local width = 180
   local watchWindow = wx.wxFrame(frame, wx.wxID_ANY, "wxLua Watch Window",
                            wx.wxDefaultPosition, wx.wxSize(width, 160))

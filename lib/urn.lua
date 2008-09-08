@@ -10,6 +10,7 @@
 -- Load the wxLua module, does nothing if running from wxLua, wxLuaFreeze, or wxLuaEdit
 package.cpath = package.cpath..";./?.dll;./?.so;../lib/?.so;../lib/vc_dll/?.dll;../lib/bcc_dll/?.dll;../lib/mingw_dll/?.dll;"
 require("wx")
+Urn = {}
 require("urn/iif")
 require("urn/has_bit")
 require("urn/config_restore_frame_position")
@@ -113,7 +114,7 @@ frame            = nil    -- wxFrame the main top level window
 splitter         = nil    -- wxSplitterWindow for the notebook and errorLog
 notebook         = nil    -- wxNotebook of editors
 errorLog         = nil    -- wxStyledTextCtrl log window for messages
-watchWindow      = nil    -- the watchWindow, nil when not created
+Urn.watchWindow  = nil    -- the watchWindow, nil when not created
 
 in_evt_focus     = false  -- true when in editor focus event to avoid recursion
 openDocuments    = {}     -- open notebook editor documents[winId] = {
@@ -738,8 +739,8 @@ frame:Connect( ID_EXIT, wx.wxEVT_COMMAND_MENU_SELECTED,
         function (event)
             if not SaveOnExit(true) then return end
             frame:Close() -- will handle wxEVT_CLOSE_WINDOW
-            watchWindow.Close()
-            watchWindow = nil
+            Urn.watchWindow.Close()
+            Urn.watchWindow = nil
         end)
 
 -- ---------------------------------------------------------------------------
@@ -1592,8 +1593,8 @@ function CreateDebuggerServer()
 
             if fileFound then
                 debuggee_running = false
-                if watchWindow then
-                  watchWindow.ProcessWatches(debuggerServer)
+                if Urn.watchWindow then
+                  Urn.watchWindow.ProcessWatches(debuggerServer)
                 end
             elseif debuggerServer then
                 debuggerServer:Continue()
@@ -1624,8 +1625,8 @@ function CreateDebuggerServer()
 
     debuggerServer:Connect(wxlua.wxEVT_WXLUA_DEBUGGER_EVALUATE_EXPR,
         function (event)
-            if watchWindow then
-                watchWindow.watchListCtrl:SetItem(event:GetReference(),
+            if Urn.watchWindow then
+                Urn.watchWindow.watchListCtrl:SetItem(event:GetReference(),
                                       1,
                                       event:GetMessage())
             end
@@ -1821,8 +1822,8 @@ frame:Connect(ID_VIEWCALLSTACK, wx.wxEVT_UPDATE_UI,
 
 frame:Connect(ID_VIEWWATCHWINDOW, wx.wxEVT_COMMAND_MENU_SELECTED,
         function (event)
-            if not watchWindow then
-                watchWindow = WatchWindow.New()
+            if not Urn.watchWindow then
+                Urn.watchWindow = Urn.WatchWindow.New()
             end
         end)
 frame:Connect(ID_VIEWWATCHWINDOW, wx.wxEVT_UPDATE_UI,
@@ -1958,8 +1959,10 @@ function CloseWindow(event)
     ConfigSaveFramePosition(frame, "MainFrame")
     config:delete() -- always delete the config
     event:Skip()
-    watchWindow.Close()
-    watchWindow = nil
+    if Urn.watchWindow then
+      Urn.watchWindow.Close()
+      Urn.watchWindow = nil
+    end
 end
 frame:Connect(wx.wxEVT_CLOSE_WINDOW, CloseWindow)
 
