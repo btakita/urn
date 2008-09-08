@@ -1,0 +1,11 @@
+# SciTE session file
+
+buffer.1.path=/home/btakita/workspace/urn/lib/urn.lua
+buffer.1.position=659
+
+buffer.2.path=/home/btakita/workspace/urn/lib/urn/config_restore_frame_position.lua
+buffer.2.position=100
+buffer.2.current=1
+
+buffer.3.path=/home/btakita/workspace/urn/lib/urn/config_save_frame_position.lua
+buffer.3.position=97
