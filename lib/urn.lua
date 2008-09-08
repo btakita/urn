@@ -22,6 +22,7 @@ require("urn/is_file_altered_on_disk")
 require("urn/is_lua_file")
 require("urn/setup_keywords")
 require("urn/create_auto_comp_list")
+require("urn/watch_window")
 
 -- Generate a unique new wxWindowID
 local ID_IDCOUNTER = wx.wxID_HIGHEST + 1
@@ -113,7 +114,6 @@ splitter         = nil    -- wxSplitterWindow for the notebook and errorLog
 notebook         = nil    -- wxNotebook of editors
 errorLog         = nil    -- wxStyledTextCtrl log window for messages
 watchWindow      = nil    -- the watchWindow, nil when not created
-watchListCtrl    = nil    -- the child listctrl in the watchWindow
 
 in_evt_focus     = false  -- true when in editor focus event to avoid recursion
 openDocuments    = {}     -- open notebook editor documents[winId] = {
@@ -436,128 +436,6 @@ function CreateEditor(name)
 end
 
 -- ---------------------------------------------------------------------------
--- Create the watch window
-
-function ProcessWatches()
-    if watchListCtrl and debuggerServer then
-        for idx = 0, watchListCtrl:GetItemCount() - 1 do
-            local expression = watchListCtrl:GetItemText(idx)
-            debuggerServer:EvaluateExpr(idx, expression)
-        end
-    end
-end
-
-function CloseWatchWindow()
-    if watchWindow then
-        watchListCtrl = nil
-        watchWindow:Destroy()
-        watchWindow = nil
-    end
-end
-
-function CreateWatchWindow()
-    local width = 180
-    watchWindow = wx.wxFrame(frame, wx.wxID_ANY, "wxLua Watch Window",
-                             wx.wxDefaultPosition, wx.wxSize(width, 160))
-
-    local watchMenu = wx.wxMenu{
-            { ID_ADDWATCH,      "&Add Watch"        },
-            { ID_EDITWATCH,     "&Edit Watch\tF2"   },
-            { ID_REMOVEWATCH,   "&Remove Watch"     },
-            { ID_EVALUATEWATCH, "Evaluate &Watches" }}
-
-    local watchMenuBar = wx.wxMenuBar()
-    watchMenuBar:Append(watchMenu, "&Watches")
-    watchWindow:SetMenuBar(watchMenuBar)
-
-    watchListCtrl = wx.wxListCtrl(watchWindow, ID_WATCH_LISTCTRL,
-                                  wx.wxDefaultPosition, wx.wxDefaultSize,
-                                  wx.wxLC_REPORT + wx.wxLC_EDIT_LABELS)
-
-    local info = wx.wxListItem()
-    info:SetMask(wx.wxLIST_MASK_TEXT + wx.wxLIST_MASK_WIDTH)
-    info:SetText("Expression")
-    info:SetWidth(width / 2)
-    watchListCtrl:InsertColumn(0, info)
-
-    info:SetText("Value")
-    info:SetWidth(width / 2)
-    watchListCtrl:InsertColumn(1, info)
-
-    watchWindow:CentreOnParent()
-    ConfigRestoreFramePosition(watchWindow, "WatchWindow")
-    watchWindow:Show(true)
-
-    local function FindSelectedWatchItem()
-        local count = watchListCtrl:GetSelectedItemCount()
-        if count > 0 then
-            for idx = 0, watchListCtrl:GetItemCount() - 1 do
-                if watchListCtrl:GetItemState(idx, wx.wxLIST_STATE_FOCUSED) ~= 0 then
-                    return idx
-                end
-            end
-        end
-        return -1
-    end
-
-    watchWindow:Connect( wx.wxEVT_CLOSE_WINDOW,
-            function (event)
-                ConfigSaveFramePosition(watchWindow, "WatchWindow")
-                watchWindow = nil
-                watchListCtrl = nil
-                event:Skip()
-            end)
-
-    watchWindow:Connect(ID_ADDWATCH, wx.wxEVT_COMMAND_MENU_SELECTED,
-            function (event)
-                local row = watchListCtrl:InsertItem(watchListCtrl:GetItemCount(), "Expr")
-                watchListCtrl:SetItem(row, 0, "Expr")
-                watchListCtrl:SetItem(row, 1, "Value")
-                watchListCtrl:EditLabel(row)
-            end)
-
-    watchWindow:Connect(ID_EDITWATCH, wx.wxEVT_COMMAND_MENU_SELECTED,
-            function (event)
-                local row = FindSelectedWatchItem()
-                if row >= 0 then
-                    watchListCtrl:EditLabel(row)
-                end
-            end)
-    watchWindow:Connect(ID_EDITWATCH, wx.wxEVT_UPDATE_UI,
-            function (event)
-                event:Enable(watchListCtrl:GetSelectedItemCount() > 0)
-            end)
-
-    watchWindow:Connect(ID_REMOVEWATCH, wx.wxEVT_COMMAND_MENU_SELECTED,
-            function (event)
-                local row = FindSelectedWatchItem()
-                if row >= 0 then
-                    watchListCtrl:DeleteItem(row)
-                end
-            end)
-    watchWindow:Connect(ID_REMOVEWATCH, wx.wxEVT_UPDATE_UI,
-            function (event)
-                event:Enable(watchListCtrl:GetSelectedItemCount() > 0)
-            end)
-
-    watchWindow:Connect(ID_EVALUATEWATCH, wx.wxEVT_COMMAND_MENU_SELECTED,
-            function (event)
-                ProcessWatches()
-            end)
-    watchWindow:Connect(ID_EVALUATEWATCH, wx.wxEVT_UPDATE_UI,
-            function (event)
-                event:Enable(watchListCtrl:GetItemCount() > 0)
-            end)
-
-    watchListCtrl:Connect(wx.wxEVT_COMMAND_LIST_END_LABEL_EDIT,
-            function (event)
-                watchListCtrl:SetItem(event:GetIndex(), 0, event:GetText())
-                ProcessWatches()
-                event:Skip()
-            end)
-end
-
--- ---------------------------------------------------------------------------
 -- Create the File menu and attach the callback functions
 
 -- force all the wxEVT_UPDATE_UI handlers to be called
@@ -860,7 +738,8 @@ frame:Connect( ID_EXIT, wx.wxEVT_COMMAND_MENU_SELECTED,
         function (event)
             if not SaveOnExit(true) then return end
             frame:Close() -- will handle wxEVT_CLOSE_WINDOW
-            CloseWatchWindow()
+            watchWindow.Close()
+            watchWindow = nil
         end)
 
 -- ---------------------------------------------------------------------------
@@ -1713,7 +1592,9 @@ function CreateDebuggerServer()
 
             if fileFound then
                 debuggee_running = false
-                ProcessWatches()
+                if watchWindow then
+                  watchWindow.ProcessWatches(debuggerServer)
+                end
             elseif debuggerServer then
                 debuggerServer:Continue()
                 debuggee_running = true
@@ -1743,8 +1624,8 @@ function CreateDebuggerServer()
 
     debuggerServer:Connect(wxlua.wxEVT_WXLUA_DEBUGGER_EVALUATE_EXPR,
         function (event)
-            if watchListCtrl then
-                watchListCtrl:SetItem(event:GetReference(),
+            if watchWindow then
+                watchWindow.watchListCtrl:SetItem(event:GetReference(),
                                       1,
                                       event:GetMessage())
             end
@@ -1941,7 +1822,7 @@ frame:Connect(ID_VIEWCALLSTACK, wx.wxEVT_UPDATE_UI,
 frame:Connect(ID_VIEWWATCHWINDOW, wx.wxEVT_COMMAND_MENU_SELECTED,
         function (event)
             if not watchWindow then
-                CreateWatchWindow()
+                watchWindow = WatchWindow.New()
             end
         end)
 frame:Connect(ID_VIEWWATCHWINDOW, wx.wxEVT_UPDATE_UI,
@@ -2077,7 +1958,8 @@ function CloseWindow(event)
     ConfigSaveFramePosition(frame, "MainFrame")
     config:delete() -- always delete the config
     event:Skip()
-    CloseWatchWindow()
+    watchWindow.Close()
+    watchWindow = nil
 end
 frame:Connect(wx.wxEVT_CLOSE_WINDOW, CloseWindow)
 
