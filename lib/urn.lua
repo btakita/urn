@@ -24,6 +24,7 @@ require("urn/is_lua_file")
 require("urn/setup_keywords")
 require("urn/create_auto_comp_list")
 require("urn/watch_window")
+require("urn/menu_bar")
 
 -- Generate a unique new wxWindowID
 local ID_IDCOUNTER = wx.wxID_HIGHEST + 1
@@ -33,8 +34,8 @@ function NewID()
 end
 
 -- File menu
-local ID_NEW              = wx.wxID_NEW
-local ID_OPEN             = wx.wxID_OPEN
+Urn.ID_NEW              = wx.wxID_NEW
+Urn.ID_OPEN             = wx.wxID_OPEN
 local ID_CLOSE            = NewID()
 local ID_SAVE             = wx.wxID_SAVE
 local ID_SAVEAS           = wx.wxID_SAVEAS
@@ -184,8 +185,8 @@ frame:SetStatusText("Welcome to wxLua")
 toolBar = frame:CreateToolBar(wx.wxNO_BORDER + wx.wxTB_FLAT + wx.wxTB_DOCKABLE)
 -- note: Ususally the bmp size isn't necessary, but the HELP icon is not the right size in MSW
 local toolBmpSize = toolBar:GetToolBitmapSize()
-toolBar:AddTool(ID_NEW,     "New",      wx.wxArtProvider.GetBitmap(wx.wxART_NORMAL_FILE, wx.wxART_MENU, toolBmpSize), "Create an empty document")
-toolBar:AddTool(ID_OPEN,    "Open",     wx.wxArtProvider.GetBitmap(wx.wxART_FILE_OPEN, wx.wxART_MENU, toolBmpSize),   "Open an existing document")
+toolBar:AddTool(Urn.ID_NEW,     "New",      wx.wxArtProvider.GetBitmap(wx.wxART_NORMAL_FILE, wx.wxART_MENU, toolBmpSize), "Create an empty document")
+toolBar:AddTool(Urn.ID_OPEN,    "Open",     wx.wxArtProvider.GetBitmap(wx.wxART_FILE_OPEN, wx.wxART_MENU, toolBmpSize),   "Open an existing document")
 toolBar:AddTool(ID_SAVE,    "Save",     wx.wxArtProvider.GetBitmap(wx.wxART_FILE_SAVE, wx.wxART_MENU, toolBmpSize),   "Save the current document")
 toolBar:AddTool(ID_SAVEALL, "Save All", wx.wxArtProvider.GetBitmap(wx.wxART_NEW_DIR, wx.wxART_MENU, toolBmpSize),     "Save all documents")
 toolBar:AddSeparator()
@@ -448,90 +449,8 @@ function UpdateUIMenuItems()
     end
 end
 
-menuBar = wx.wxMenuBar()
-fileMenu = wx.wxMenu({
-        { ID_NEW,     "&New\tCtrl-N",        "Create an empty document" },
-        { ID_OPEN,    "&Open...\tCtrl-O",    "Open an existing document" },
-        { ID_CLOSE,   "&Close page\tCtrl+W", "Close the current editor window" },
-        { },
-        { ID_SAVE,    "&Save\tCtrl-S",       "Save the current document" },
-        { ID_SAVEAS,  "Save &As...\tAlt-S",  "Save the current document to a file with a new name" },
-        { ID_SAVEALL, "Save A&ll...\tCtrl-Shift-S", "Save all open documents" },
-        { },
-        { ID_EXIT,    "E&xit\tAlt-X",        "Exit Program" }})
-menuBar:Append(fileMenu, "&File")
+Urn.menuBar = Urn.MenuBar.new(wx, frame)
 
-function NewFile(event)
-    local editor = CreateEditor("untitled.lua")
-    SetupKeywords(editor, true)
-end
-
-frame:Connect(ID_NEW, wx.wxEVT_COMMAND_MENU_SELECTED, NewFile)
-
--- Find an editor page that hasn't been used at all, eg. an untouched NewFile()
-function FindDocumentToReuse()
-    local editor = nil
-    for id, document in pairs(openDocuments) do
-        if (document.editor:GetLength() == 0) and
-           (not document.isModified) and (not document.filePath) and
-           not (document.editor:GetReadOnly() == true) then
-            editor = document.editor
-            break
-        end
-    end
-    return editor
-end
-
-function LoadFile(filePath, editor, file_must_exist)
-    local file_text = ""
-    local handle = io.open(filePath, "rb")
-    if handle then
-        file_text = handle:read("*a")
-        handle:close()
-    elseif file_must_exist then
-        return nil
-    end
-
-    if not editor then
-        editor = FindDocumentToReuse()
-    end
-    if not editor then
-        editor = CreateEditor(wx.wxFileName(filePath):GetFullName() or "untitled.lua")
-     end
-
-    editor:Clear()
-    editor:ClearAll()
-    SetupKeywords(editor, IsLuaFile(filePath))
-    editor:MarkerDeleteAll(BREAKPOINT_MARKER)
-    editor:MarkerDeleteAll(CURRENT_LINE_MARKER)
-    editor:AppendText(file_text)
-    editor:EmptyUndoBuffer()
-    local id = editor:GetId()
-    openDocuments[id].filePath = filePath
-    openDocuments[id].fileName = wx.wxFileName(filePath):GetFullName()
-    openDocuments[id].modTime = GetFileModTime(filePath)
-    SetDocumentModified(id, false)
-    editor:Colourise(0, -1)
-
-    return editor
-end
-
-function OpenFile(event)
-    local fileDialog = wx.wxFileDialog(frame, "Open file",
-                                       "",
-                                       "",
-                                       "Lua files (*.lua)|*.lua|Text files (*.txt)|*.txt|All files (*)|*",
-                                       wx.wxOPEN + wx.wxFILE_MUST_EXIST)
-    if fileDialog:ShowModal() == wx.wxID_OK then
-        if not LoadFile(fileDialog:GetPath(), nil, true) then
-            wx.wxMessageBox("Unable to load file '"..fileDialog:GetPath().."'.",
-                            "wxLua Error",
-                            wx.wxOK + wx.wxCENTRE, frame)
-        end
-    end
-    fileDialog:Destroy()
-end
-frame:Connect(ID_OPEN, wx.wxEVT_COMMAND_MENU_SELECTED, OpenFile)
 
 -- save the file to filePath or if filePath is nil then call SaveFileAs
 function SaveFile(editor, filePath)
@@ -761,7 +680,7 @@ editMenu = wx.wxMenu{
         { ID_COMMENT, "C&omment/Uncomment\tCtrl-Q", "Comment or uncomment current or selected lines"},
         { },
         { ID_FOLD,    "&Fold/Unfold all\tF12", "Fold or unfold all code folds"} }
-menuBar:Append(editMenu, "&Edit")
+Urn.menuBar:Append(editMenu, "&Edit")
 
 editMenu:Check(ID_AUTOCOMPLETE_ENABLE, autoCompleteEnable)
 
@@ -927,7 +846,7 @@ findMenu = wx.wxMenu{
         { ID_GOTOLINE,   "&Goto line\tCtrl-G",       "Go to a selected line" },
         { },
         { ID_SORT,       "&Sort",                    "Sort selected lines"}}
-menuBar:Append(findMenu, "&Search")
+Urn.menuBar:Append(findMenu, "&Search")
 
 function EnsureRangeVisible(posStart, posEnd)
     local editor = GetEditor()
@@ -1280,9 +1199,9 @@ debugMenu = wx.wxMenu{
         { ID_CLEAROUTPUT,      "C&lear Output Window",    "Clear the output window before compiling or debugging", wx.wxITEM_CHECK },
         --{ }, { ID_DEBUGGER_PORT,    "Set debugger socket port...", "Chose what port to use for debugger sockets." }
         }
-menuBar:Append(debugMenu, "&Debug")
+Urn.menuBar:Append(debugMenu, "&Debug")
 
-menuBar:Check(ID_USECONSOLE, true)
+Urn.menuBar:Check(ID_USECONSOLE, true)
 
 function SetAllEditorsReadOnly(enable)
     for id, document in pairs(openDocuments) do
@@ -1352,7 +1271,7 @@ function CompileProgram(editor)
     local id         = editor:GetId()
     local filePath   = MakeDebugFileName(editor, openDocuments[id].filePath)
     local ret, errMsg, line_num = wxlua.CompileLuaScript(editorText, filePath)
-    if menuBar:IsChecked(ID_CLEAROUTPUT) then
+    if Urn.menuBar:IsChecked(ID_CLEAROUTPUT) then
         ClearOutput()
     end
 
@@ -1422,7 +1341,7 @@ frame:Connect(ID_RUN, wx.wxEVT_COMMAND_MENU_SELECTED,
             end
 
             local id = editor:GetId();
-            local console = iff(menuBar:IsChecked(ID_USECONSOLE), " -c ", "")
+            local console = iff(Urn.menuBar:IsChecked(ID_USECONSOLE), " -c ", "")
             local cmd = '"'..programName..'" '..console..openDocuments[id].filePath
 
             DisplayOutput("Running program: "..cmd.."\n")
@@ -1860,7 +1779,7 @@ frame:Connect(ID_DEBUGGER_PORT, wx.wxEVT_UPDATE_UI,
 
 helpMenu = wx.wxMenu{
         { ID_ABOUT,      "&About\tF1",       "About wxLua IDE" }}
-menuBar:Append(helpMenu, "&Help")
+Urn.menuBar:Append(helpMenu, "&Help")
 
 function DisplayAbout(event)
     local page = [[
@@ -1969,7 +1888,7 @@ frame:Connect(wx.wxEVT_CLOSE_WINDOW, CloseWindow)
 -- ---------------------------------------------------------------------------
 -- Finish creating the frame and show it
 
-frame:SetMenuBar(menuBar)
+frame:SetMenuBar(Urn.menuBar)
 ConfigRestoreFramePosition(frame, "MainFrame")
 
 -- ---------------------------------------------------------------------------
