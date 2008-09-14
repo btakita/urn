@@ -4,7 +4,16 @@ Urn = {}
 package.cpath = package.cpath..";./?.dll;./?.so;../lib/?.so;../lib/vc_dll/?.dll;../lib/bcc_dll/?.dll;../lib/mingw_dll/?.dll;"
 require("wx")
 require("urn/iif")
-require("urn/new_id")
+
+-- Generate a unique new wxWindowID
+Urn.new_id = function()
+  if not Urn.next_id then
+    Urn.next_id = wx.wxID_HIGHEST + 1
+  else
+    Urn.next_id = Urn.next_id + 1
+  end
+  return Urn.next_id
+end
 
 -- File menu
 Urn.ID_NEW              = wx.wxID_NEW
