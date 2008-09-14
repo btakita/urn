@@ -42,11 +42,8 @@ Urn.ID_REPLACE          = Urn:new_id()
 Urn.ID_GOTOLINE         = Urn:new_id()
 Urn.ID_SORT             = Urn:new_id()
 -- Debug menu
-Urn.ID_TOGGLEBREAKPOINT = Urn:new_id()
 Urn.ID_COMPILE          = Urn:new_id()
 Urn.ID_RUN              = Urn:new_id()
-Urn.ID_ATTACH_DEBUG     = Urn:new_id()
-Urn.ID_START_DEBUG      = Urn:new_id()
 Urn.ID_USECONSOLE       = Urn:new_id()
 
 -- Help menu
