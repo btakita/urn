@@ -1,8 +1,10 @@
-Urn = {}
-
 -- Load the wxLua module, does nothing if running from wxLua, wxLuaFreeze, or wxLuaEdit
 package.cpath = package.cpath..";./?.dll;./?.so;../lib/?.so;../lib/vc_dll/?.dll;../lib/bcc_dll/?.dll;../lib/mingw_dll/?.dll;"
 require("wx")
+
+Urn = {}
+Urn.Commands = {}
+
 require("urn/iif")
 
 -- Generate a unique new wxWindowID
@@ -60,12 +62,30 @@ function Urn:new(wx)
   
   function urn:start()
     self.frame = wx.wxFrame(wx.NULL, wx.wxID_ANY, "wxLua")
+    self.menu_bar = wx.wxMenuBar()
+    self.frame:SetMenuBar(self.menu_bar)
+    self.menus = {}
+    self:append_menu("file", wx.wxMenu(), "&File")
+    
+    Urn.Commands.New:new(wx, self):attach()
+    
     self.frame:Show(true)
     wx.wxGetApp():MainLoop()
   end
-
+    
+  function urn:append_menu(name, menu, display_name)
+    self.menus[name] = menu
+    self.menu_bar:Append(menu, display_name)
+  end
+  
+  function urn:load_command(file)
+    require(file)
+  end
+  
   return urn
 end
+
+require("urn/commands/new")
 
 local urn = Urn:new(wx)
 urn:start()
