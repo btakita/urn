@@ -62,6 +62,24 @@ function Urn:new(wx)
   
   function urn:start()
     self.frame = wx.wxFrame(wx.NULL, wx.wxID_ANY, "wxLua")
+    self.splitter = wx.wxSplitterWindow(
+      self.frame,
+      wx.wxID_ANY,
+      wx.wxDefaultPosition,
+      wx.wxDefaultSize,
+      wx.wxSP_3DSASH)
+    self.notebook = wx.wxNotebook(
+      self.splitter,
+      wx.wxID_ANY,
+      wx.wxDefaultPosition,
+      wx.wxDefaultSize,
+      wx.wxCLIP_CHILDREN)
+    self.open_documents = {}
+    self.status_text_table = { "OVR?", "R/O?", "Cursor Pos" }
+    
+    self.font = wx.wxFont(10, wx.wxFONTFAMILY_MODERN, wx.wxFONTSTYLE_NORMAL, wx.wxFONTWEIGHT_NORMAL, false, "Andale Mono")
+    self.font_italic = wx.wxFont(10, wx.wxFONTFAMILY_MODERN, wx.wxFONTSTYLE_ITALIC, wx.wxFONTWEIGHT_NORMAL, false, "Andale Mono")
+    
     self.menu_bar = wx.wxMenuBar()
     self.frame:SetMenuBar(self.menu_bar)
     self.menus = {}
@@ -72,7 +90,7 @@ function Urn:new(wx)
     self.frame:Show(true)
     wx.wxGetApp():MainLoop()
   end
-    
+  
   function urn:append_menu(name, menu, display_name)
     self.menus[name] = menu
     self.menu_bar:Append(menu, display_name)
